@@ -7,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import 'models/user_model.dart';
 import 'services/database_service.dart';
+import 'services/firestore_service.dart';
 
 class FaceRegisterScreen extends StatefulWidget {
   const FaceRegisterScreen({super.key});
@@ -245,7 +246,7 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen>
         actions: [
           TextButton(
             onPressed: () async {
-              // Cancel - reset local state (face registration will be orphaned but not linked to any user)
+              // Cancel - reset local state
               _capturedImagePath = null;
               _capturedFaceId = null;
               setState(() {
@@ -286,10 +287,17 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen>
     });
 
     try {
-      // Check if email already exists
-      final emailExists = await DatabaseService.instance.emailExists(_emailController.text.trim());
-      if (emailExists) {
-        // Email is duplicate - reset local state (face registration will be orphaned)
+      // Check if email already exists in Firestore
+      bool firestoreEmailExists = false;
+      try {
+        firestoreEmailExists = await FirestoreService.instance.emailExists(
+          _emailController.text.trim(),
+        );
+      } catch (e) {
+        log('⚠️ Could not check Firestore: $e');
+      }
+
+      if (firestoreEmailExists) {
         setState(() {
           _isSuccess = false;
           _message = '⚠️ Email already registered. Please use a different email.';
@@ -300,7 +308,36 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen>
         return;
       }
 
-      // Save user to database
+      // Check if email exists in local database (fallback)
+      final emailExists = await DatabaseService.instance.emailExists(_emailController.text.trim());
+      if (emailExists) {
+        setState(() {
+          _isSuccess = false;
+          _message = '⚠️ Email already registered. Please use a different email.';
+          _isLoading = false;
+          _capturedImagePath = null;
+          _capturedFaceId = null;
+        });
+        return;
+      }
+
+      // Generate a unique user ID
+      final userId = 'uid_${DateTime.now().millisecondsSinceEpoch}';
+
+      // Save to Firestore (cloud storage for cross-device access)
+      try {
+        await FirestoreService.instance.saveUser(
+          userId: userId,
+          name: _nameController.text.trim(),
+          email: _emailController.text.trim(),
+          faceId: _capturedFaceId!,
+        );
+        log('✅ User saved to Firestore');
+      } catch (e) {
+        log('⚠️ Could not save to Firestore: $e');
+      }
+
+      // Save to local database (for offline access)
       final user = UserModel(
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),

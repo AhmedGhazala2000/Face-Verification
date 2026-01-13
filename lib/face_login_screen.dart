@@ -1,4 +1,5 @@
 import 'dart:developer';
+import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
 import 'package:face_verification/face_verification.dart';
@@ -7,6 +8,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import 'models/user_model.dart';
 import 'services/database_service.dart';
+import 'services/firestore_service.dart';
 
 class FaceLoginScreen extends StatefulWidget {
   const FaceLoginScreen({super.key});
@@ -89,10 +91,19 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> with SingleTickerProv
     });
 
     try {
-      // Get all registered users from database
-      final users = await DatabaseService.instance.getAllUsers();
+      // Get all registered users - try Firestore first, then local
+      List<Map<String, dynamic>> firestoreUsers = [];
+      try {
+        firestoreUsers = await FirestoreService.instance.getAllUsers();
+        log('Found ${firestoreUsers.length} users in Firestore');
+      } catch (e) {
+        log('⚠️ Could not fetch from Firestore: $e');
+      }
 
-      if (users.isEmpty) {
+      final localUsers = await DatabaseService.instance.getAllUsers();
+      log('Found ${localUsers.length} users in local database');
+
+      if (firestoreUsers.isEmpty && localUsers.isEmpty) {
         setState(() {
           _isSuccess = false;
           _message = '⚠️ No users registered yet.\nPlease register first.';
@@ -105,29 +116,67 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> with SingleTickerProv
       final imagePath = image.path;
       log('loginImagePath: $imagePath');
 
-      // Try to verify against each registered user
       String? matchedFaceId;
-      for (final user in users) {
-        try {
-          final matchId = await FaceVerification.instance.verifyFromImagePath(
-            imagePath: imagePath,
-            threshold: 0.9,
-            staffId: user.faceId,
-          );
+      Map<String, dynamic>? matchedUser;
 
-          if (matchId != null) {
-            matchedFaceId = user.faceId;
-            break;
-          }
-        } catch (e) {
-          // Continue to next user if verification fails for this one
-          log('Verification failed for ${user.faceId}: $e');
+      // Try local verification against all registered users
+      log('🔍 Attempting face verification...');
+
+      // Combine face IDs from both sources
+      final allFaceIds = <String>{};
+      for (final user in localUsers) {
+        allFaceIds.add(user.faceId);
+      }
+      for (final user in firestoreUsers) {
+        final faceId = user['faceId'] as String?;
+        if (faceId != null) {
+          allFaceIds.add(faceId);
         }
       }
 
-      if (matchedFaceId != null) {
-        // Get the matched user from database
-        _loggedInUser = await DatabaseService.instance.getUserByFaceId(matchedFaceId);
+      for (final faceId in allFaceIds) {
+        try {
+          final matchId = await FaceVerification.instance.verifyFromImagePath(
+            imagePath: imagePath,
+            threshold: 0.85,
+            staffId: faceId,
+          );
+
+          if (matchId != null) {
+            matchedFaceId = faceId;
+            log('✅ Face verification successful! Match: $matchedFaceId');
+
+            // Get user details - try Firestore first
+            matchedUser = await FirestoreService.instance.getUserByFaceId(faceId);
+
+            // Fallback to local database
+            if (matchedUser == null) {
+              final localUser = await DatabaseService.instance.getUserByFaceId(faceId);
+              if (localUser != null) {
+                matchedUser = localUser.toMap();
+              }
+            }
+            break;
+          }
+        } catch (e) {
+          log('Verification failed for $faceId: $e');
+        }
+      }
+
+      if (matchedFaceId != null && matchedUser != null) {
+        // Convert matched user to UserModel
+        _loggedInUser = UserModel(
+          name: matchedUser['name'] as String,
+          email: matchedUser['email'] as String,
+          faceId: matchedUser['faceId'] as String? ?? matchedUser['face_id'] as String,
+          createdAt: matchedUser['createdAt'] != null
+              ? (matchedUser['createdAt'] is DateTime
+                    ? matchedUser['createdAt'] as DateTime
+                    : DateTime.tryParse(matchedUser['createdAt'].toString()) ?? DateTime.now())
+              : (matchedUser['created_at'] != null
+                    ? DateTime.parse(matchedUser['created_at'] as String)
+                    : DateTime.now()),
+        );
 
         setState(() {
           _isSuccess = true;
@@ -162,6 +211,29 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> with SingleTickerProv
         _isLoading = false;
       });
     }
+  }
+
+  /// Calculate cosine similarity between two embeddings
+  double _calculateCosineSimilarity(List<double> embedding1, List<double> embedding2) {
+    if (embedding1.length != embedding2.length) {
+      return 0.0;
+    }
+
+    double dotProduct = 0.0;
+    double norm1 = 0.0;
+    double norm2 = 0.0;
+
+    for (int i = 0; i < embedding1.length; i++) {
+      dotProduct += embedding1[i] * embedding2[i];
+      norm1 += embedding1[i] * embedding1[i];
+      norm2 += embedding2[i] * embedding2[i];
+    }
+
+    if (norm1 == 0.0 || norm2 == 0.0) {
+      return 0.0;
+    }
+
+    return dotProduct / math.sqrt(norm1 * norm2);
   }
 
   void _showSuccessDialog() {

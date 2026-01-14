@@ -5,9 +5,7 @@ import 'package:face_verification/face_verification.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-import 'models/user_model.dart';
-import 'services/database_service.dart';
-import 'services/firestore_service.dart';
+import '../services/firestore_service.dart';
 
 class FaceRegisterScreen extends StatefulWidget {
   const FaceRegisterScreen({super.key});
@@ -32,7 +30,6 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen>
   final _formKey = GlobalKey<FormState>();
 
   // Captured face data
-  String? _capturedImagePath;
   String? _capturedFaceId;
 
   @override
@@ -118,7 +115,6 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen>
       );
 
       // Store the captured face data
-      _capturedImagePath = imagePath;
       _capturedFaceId = faceId;
 
       setState(() {
@@ -132,7 +128,6 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen>
     } catch (e) {
       setState(() {
         _isSuccess = false;
-        _capturedImagePath = null;
         _capturedFaceId = null;
         if (e.toString().contains('No face detected') ||
             e.toString().contains('detection failed')) {
@@ -247,7 +242,6 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen>
           TextButton(
             onPressed: () async {
               // Cancel - reset local state
-              _capturedImagePath = null;
               _capturedFaceId = null;
               setState(() {
                 _isSuccess = false;
@@ -288,34 +282,15 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen>
 
     try {
       // Check if email already exists in Firestore
-      bool firestoreEmailExists = false;
-      try {
-        firestoreEmailExists = await FirestoreService.instance.emailExists(
-          _emailController.text.trim(),
-        );
-      } catch (e) {
-        log('⚠️ Could not check Firestore: $e');
-      }
+      final firestoreEmailExists = await FirestoreService.instance.emailExists(
+        _emailController.text.trim(),
+      );
 
       if (firestoreEmailExists) {
         setState(() {
           _isSuccess = false;
           _message = '⚠️ Email already registered. Please use a different email.';
           _isLoading = false;
-          _capturedImagePath = null;
-          _capturedFaceId = null;
-        });
-        return;
-      }
-
-      // Check if email exists in local database (fallback)
-      final emailExists = await DatabaseService.instance.emailExists(_emailController.text.trim());
-      if (emailExists) {
-        setState(() {
-          _isSuccess = false;
-          _message = '⚠️ Email already registered. Please use a different email.';
-          _isLoading = false;
-          _capturedImagePath = null;
           _capturedFaceId = null;
         });
         return;
@@ -324,30 +299,18 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen>
       // Generate a unique user ID
       final userId = 'uid_${DateTime.now().millisecondsSinceEpoch}';
 
-      // Save to Firestore (cloud storage for cross-device access)
-      try {
-        await FirestoreService.instance.saveUser(
-          userId: userId,
-          name: _nameController.text.trim(),
-          email: _emailController.text.trim(),
-          faceId: _capturedFaceId!,
-        );
-        log('✅ User saved to Firestore');
-      } catch (e) {
-        log('⚠️ Could not save to Firestore: $e');
-      }
-
-      // Save to local database (for offline access)
-      final user = UserModel(
+      // Save to Firestore
+      await FirestoreService.instance.saveUser(
+        userId: userId,
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
         faceId: _capturedFaceId!,
       );
-      await DatabaseService.instance.createUser(user);
+      log('✅ User saved to Firestore');
 
       setState(() {
         _isSuccess = true;
-        _message = '✅ Registration complete!\nWelcome, ${user.name}!';
+        _message = '✅ Registration complete!\nWelcome, ${_nameController.text.trim()}!';
       });
 
       // Wait a moment then go back

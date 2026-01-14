@@ -1,14 +1,13 @@
 import 'dart:developer';
-import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
 import 'package:face_verification/face_verification.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-import 'models/user_model.dart';
-import 'services/database_service.dart';
-import 'services/firestore_service.dart';
+import '../models/user_model.dart';
+import '../services/firestore_service.dart';
+import '../widgets/login_scan_animation.dart';
 
 class FaceLoginScreen extends StatefulWidget {
   const FaceLoginScreen({super.key});
@@ -62,7 +61,7 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> with SingleTickerProv
       _controller = CameraController(
         frontCamera,
         ResolutionPreset.high,
-        enableAudio: false,
+        enableAudio: true,
         imageFormatGroup: ImageFormatGroup.jpeg,
       );
 
@@ -91,19 +90,11 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> with SingleTickerProv
     });
 
     try {
-      // Get all registered users - try Firestore first, then local
-      List<Map<String, dynamic>> firestoreUsers = [];
-      try {
-        firestoreUsers = await FirestoreService.instance.getAllUsers();
-        log('Found ${firestoreUsers.length} users in Firestore');
-      } catch (e) {
-        log('⚠️ Could not fetch from Firestore: $e');
-      }
+      // Get all registered users from Firestore
+      final firestoreUsers = await FirestoreService.instance.getAllUsers();
+      log('Found ${firestoreUsers.length} users in Firestore');
 
-      final localUsers = await DatabaseService.instance.getAllUsers();
-      log('Found ${localUsers.length} users in local database');
-
-      if (firestoreUsers.isEmpty && localUsers.isEmpty) {
+      if (firestoreUsers.isEmpty) {
         setState(() {
           _isSuccess = false;
           _message = '⚠️ No users registered yet.\nPlease register first.';
@@ -119,14 +110,11 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> with SingleTickerProv
       String? matchedFaceId;
       Map<String, dynamic>? matchedUser;
 
-      // Try local verification against all registered users
+      // Try verification against all registered users
       log('🔍 Attempting face verification...');
 
-      // Combine face IDs from both sources
+      // Get all face IDs from Firestore
       final allFaceIds = <String>{};
-      for (final user in localUsers) {
-        allFaceIds.add(user.faceId);
-      }
       for (final user in firestoreUsers) {
         final faceId = user['faceId'] as String?;
         if (faceId != null) {
@@ -146,16 +134,8 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> with SingleTickerProv
             matchedFaceId = faceId;
             log('✅ Face verification successful! Match: $matchedFaceId');
 
-            // Get user details - try Firestore first
+            // Get user details from Firestore
             matchedUser = await FirestoreService.instance.getUserByFaceId(faceId);
-
-            // Fallback to local database
-            if (matchedUser == null) {
-              final localUser = await DatabaseService.instance.getUserByFaceId(faceId);
-              if (localUser != null) {
-                matchedUser = localUser.toMap();
-              }
-            }
             break;
           }
         } catch (e) {
@@ -211,29 +191,6 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> with SingleTickerProv
         _isLoading = false;
       });
     }
-  }
-
-  /// Calculate cosine similarity between two embeddings
-  double _calculateCosineSimilarity(List<double> embedding1, List<double> embedding2) {
-    if (embedding1.length != embedding2.length) {
-      return 0.0;
-    }
-
-    double dotProduct = 0.0;
-    double norm1 = 0.0;
-    double norm2 = 0.0;
-
-    for (int i = 0; i < embedding1.length; i++) {
-      dotProduct += embedding1[i] * embedding2[i];
-      norm1 += embedding1[i] * embedding1[i];
-      norm2 += embedding2[i] * embedding2[i];
-    }
-
-    if (norm1 == 0.0 || norm2 == 0.0) {
-      return 0.0;
-    }
-
-    return dotProduct / math.sqrt(norm1 * norm2);
   }
 
   void _showSuccessDialog() {
@@ -390,7 +347,8 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> with SingleTickerProv
           ),
 
           // Scanning animation when loading
-          if (_isLoading) Center(child: SizedBox(width: 280, height: 360, child: _ScanAnimation())),
+          if (_isLoading)
+            Center(child: SizedBox(width: 280, height: 360, child: LoginScanAnimation())),
 
           // Top Bar
           SafeArea(
@@ -542,68 +500,5 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> with SingleTickerProv
         ],
       ),
     );
-  }
-}
-
-// Scanning animation widget
-class _ScanAnimation extends StatefulWidget {
-  @override
-  State<_ScanAnimation> createState() => _ScanAnimationState();
-}
-
-class _ScanAnimationState extends State<_ScanAnimation> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(duration: const Duration(seconds: 2), vsync: this)..repeat();
-
-    _animation = Tween<double>(begin: 0.0, end: 1.0).animate(_controller);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, child) {
-        return CustomPaint(painter: _ScanPainter(_animation.value));
-      },
-    );
-  }
-}
-
-class _ScanPainter extends CustomPainter {
-  final double progress;
-
-  _ScanPainter(this.progress);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          Colors.blue.withValues(alpha: 0.0),
-          Colors.blue.withValues(alpha: 0.5),
-          Colors.blue.withValues(alpha: 0.0),
-        ],
-        stops: const [0.0, 0.5, 1.0],
-      ).createShader(Rect.fromLTWH(0, progress * size.height - 30, size.width, 60));
-
-    canvas.drawRect(Rect.fromLTWH(0, progress * size.height - 30, size.width, 60), paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _ScanPainter oldDelegate) {
-    return oldDelegate.progress != progress;
   }
 }

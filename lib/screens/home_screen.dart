@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../models/user_model.dart';
+import '../services/firestore_service.dart';
 import 'face_login_screen.dart';
 import 'face_register_screen.dart';
-import 'models/user_model.dart';
-import 'services/database_service.dart';
-import 'services/firestore_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -39,8 +38,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   Future<void> _checkRegistration() async {
-    // Check both local and Firestore
-    final localCount = await DatabaseService.instance.getUserCount();
+    // Check Firestore only
     int firestoreCount = 0;
     try {
       firestoreCount = await FirestoreService.instance.getUserCount();
@@ -48,7 +46,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       // Firestore might not be available
     }
 
-    final count = localCount > firestoreCount ? localCount : firestoreCount;
+    final count = firestoreCount;
 
     setState(() {
       _userCount = count;

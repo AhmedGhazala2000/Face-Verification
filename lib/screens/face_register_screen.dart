@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../services/firestore_service.dart';
+import '../services/storage_service.dart';
 
 class FaceRegisterScreen extends StatefulWidget {
   const FaceRegisterScreen({super.key});
@@ -31,6 +32,8 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen>
 
   // Captured face data
   String? _capturedFaceId;
+  String? _capturedImagePath;
+  List<double>? _capturedEmbedding;
 
   @override
   void initState() {
@@ -106,7 +109,7 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen>
       // Check if this face ID already registered (for replacement)
       final isAlreadyRegistered = await FaceVerification.instance.isFaceRegistered(faceId);
 
-      // Register the face with FaceVerification
+      // Register the face with FaceVerification (this stores it locally)
       await FaceVerification.instance.registerFromImagePath(
         id: faceId,
         imagePath: imagePath,
@@ -114,8 +117,19 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen>
         replace: isAlreadyRegistered,
       );
 
+      // Get the embedding from the FaceVerification storage
+      // The FaceVerification package stores embeddings internally after registration
+      final faceRecords = await FaceVerification.instance.getFacesForUser(faceId);
+      List<double>? embedding;
+      if (faceRecords.isNotEmpty) {
+        embedding = faceRecords.first.embedding;
+        log('📊 Retrieved embedding with ${embedding.length} dimensions');
+      }
+
       // Store the captured face data
       _capturedFaceId = faceId;
+      _capturedImagePath = imagePath;
+      _capturedEmbedding = embedding;
 
       setState(() {
         _isLoading = false;
@@ -129,6 +143,7 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen>
       setState(() {
         _isSuccess = false;
         _capturedFaceId = null;
+        _capturedEmbedding = null;
         if (e.toString().contains('No face detected') ||
             e.toString().contains('detection failed')) {
           _message = '😕 No face detected. Please try again.';
@@ -243,6 +258,7 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen>
             onPressed: () async {
               // Cancel - reset local state
               _capturedFaceId = null;
+              _capturedEmbedding = null;
               setState(() {
                 _isSuccess = false;
                 _message = null;
@@ -274,7 +290,13 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen>
   }
 
   Future<void> _saveUserToDatabase() async {
-    if (_capturedFaceId == null) return;
+    if (_capturedFaceId == null || _capturedEmbedding == null) {
+      setState(() {
+        _isSuccess = false;
+        _message = '⚠️ Face data not captured properly. Please try again.';
+      });
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -292,21 +314,37 @@ class _FaceRegisterScreenState extends State<FaceRegisterScreen>
           _message = '⚠️ Email already registered. Please use a different email.';
           _isLoading = false;
           _capturedFaceId = null;
+          _capturedEmbedding = null;
         });
         return;
+      }
+
+      // Save the captured face image to permanent storage
+      String? savedImagePath;
+      if (_capturedImagePath != null) {
+        try {
+          savedImagePath = await StorageService.instance.saveFaceImage(
+            _capturedImagePath!,
+            _capturedFaceId!,
+          );
+        } catch (e) {
+          log('⚠️ Failed to save face image: $e');
+        }
       }
 
       // Generate a unique user ID
       final userId = 'uid_${DateTime.now().millisecondsSinceEpoch}';
 
-      // Save to Firestore
-      await FirestoreService.instance.saveUser(
+      // Save to Firestore with embedding for cross-device recognition
+      await FirestoreService.instance.saveUserWithEmbedding(
         userId: userId,
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
         faceId: _capturedFaceId!,
+        embedding: _capturedEmbedding!,
+        imagePath: savedImagePath,
       );
-      log('✅ User saved to Firestore');
+      log('✅ User and embedding saved to Firestore');
 
       setState(() {
         _isSuccess = true;

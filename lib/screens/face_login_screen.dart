@@ -7,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../models/user_model.dart';
 import '../services/firestore_service.dart';
+import '../services/storage_service.dart';
 import '../widgets/login_scan_animation.dart';
 
 class FaceLoginScreen extends StatefulWidget {
@@ -61,7 +62,7 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> with SingleTickerProv
       _controller = CameraController(
         frontCamera,
         ResolutionPreset.high,
-        enableAudio: true,
+        enableAudio: false,
         imageFormatGroup: ImageFormatGroup.jpeg,
       );
 
@@ -144,11 +145,20 @@ class _FaceLoginScreenState extends State<FaceLoginScreen> with SingleTickerProv
       }
 
       if (matchedFaceId != null && matchedUser != null) {
+        // Get saved face image path
+        String? savedImagePath = await StorageService.instance.getFaceImagePath(matchedFaceId);
+
+        // If no saved image, try to get from Firestore data
+        if (savedImagePath == null && matchedUser.containsKey('imagePath')) {
+          savedImagePath = matchedUser['imagePath'] as String?;
+        }
+
         // Convert matched user to UserModel
         _loggedInUser = UserModel(
           name: matchedUser['name'] as String,
           email: matchedUser['email'] as String,
           faceId: matchedUser['faceId'] as String? ?? matchedUser['face_id'] as String,
+          imagePath: savedImagePath,
           createdAt: matchedUser['createdAt'] != null
               ? (matchedUser['createdAt'] is DateTime
                     ? matchedUser['createdAt'] as DateTime

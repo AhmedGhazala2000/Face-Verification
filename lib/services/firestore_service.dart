@@ -18,6 +18,7 @@ class FirestoreService {
     required String name,
     required String email,
     required String faceId,
+    String? imagePath,
   }) async {
     try {
       final userRef = _firestore.collection(usersCollection).doc(userId);
@@ -25,6 +26,7 @@ class FirestoreService {
         'name': name,
         'email': email,
         'faceId': faceId,
+        'imagePath': imagePath,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
@@ -42,6 +44,7 @@ class FirestoreService {
     required String email,
     required String faceId,
     required List<double> embedding,
+    String? imagePath,
   }) async {
     try {
       final batch = _firestore.batch();
@@ -52,6 +55,7 @@ class FirestoreService {
         'name': name,
         'email': email,
         'faceId': faceId,
+        'imagePath': imagePath,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });

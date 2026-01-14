@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../models/user_model.dart';
@@ -180,86 +182,155 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       children: [
                         const SizedBox(height: 20),
 
-                        // User Avatar
+                        // User Avatar with Face Image
                         Stack(
                           children: [
                             Container(
-                              width: 140,
-                              height: 140,
+                              width: 160,
+                              height: 160,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 gradient: LinearGradient(
-                                  colors: [Colors.green.shade400, Colors.green.shade700],
+                                  colors: [Colors.deepPurple.shade400, Colors.purple.shade700],
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.green.withValues(alpha: 0.4),
-                                    blurRadius: 20,
+                                    color: Colors.deepPurple.withValues(alpha: 0.5),
+                                    blurRadius: 25,
                                     spreadRadius: 5,
                                   ),
                                 ],
                               ),
-                              child: const Icon(Icons.person, size: 80, color: Colors.white),
+                              child: ClipOval(
+                                child:
+                                    _loggedInUser!.imagePath != null &&
+                                        File(_loggedInUser!.imagePath!).existsSync()
+                                    ? Image.file(
+                                        File(_loggedInUser!.imagePath!),
+                                        fit: BoxFit.cover,
+                                        width: 160,
+                                        height: 160,
+                                      )
+                                    : Container(
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [Colors.green.shade400, Colors.green.shade700],
+                                          ),
+                                        ),
+                                        child: const Icon(
+                                          Icons.person,
+                                          size: 90,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                              ),
                             ),
                             Positioned(
-                              bottom: 0,
-                              right: 0,
+                              bottom: 5,
+                              right: 5,
                               child: Container(
-                                padding: const EdgeInsets.all(8),
+                                padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
                                   color: Colors.green,
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.deepPurple.shade900, width: 3),
+                                  border: Border.all(color: Colors.deepPurple.shade900, width: 4),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.green.withValues(alpha: 0.5),
+                                      blurRadius: 10,
+                                      spreadRadius: 2,
+                                    ),
+                                  ],
                                 ),
-                                child: const Icon(Icons.check, color: Colors.white, size: 20),
+                                child: const Icon(Icons.verified, color: Colors.white, size: 24),
                               ),
                             ),
                           ],
                         ),
 
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 30),
 
                         // Welcome Message
-                        const Text(
-                          'Welcome back!',
-                          style: TextStyle(fontSize: 16, color: Colors.white70),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Text(
+                            '👋 Welcome back!',
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 12),
 
                         // User Name
                         Text(
                           _loggedInUser!.name,
                           style: const TextStyle(
-                            fontSize: 32,
+                            fontSize: 36,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
+                            letterSpacing: 0.5,
                           ),
                           textAlign: TextAlign.center,
                         ),
 
-                        const SizedBox(height: 40),
+                        const SizedBox(height: 36),
 
                         // User Details Card
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.all(24),
+                          padding: const EdgeInsets.all(28),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                            color: Colors.white.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(28),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.25),
+                              width: 1.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.2),
+                                blurRadius: 15,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Profile Details',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.deepPurple.withValues(alpha: 0.3),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Icon(
+                                      Icons.account_circle,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  const Text(
+                                    'Profile Details',
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 20),
+                              const SizedBox(height: 24),
 
                               // Email
                               _buildDetailRow(
@@ -272,7 +343,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
                               // Face ID
                               _buildDetailRow(
-                                icon: Icons.face,
+                                icon: Icons.fingerprint,
                                 label: 'Face ID',
                                 value: _loggedInUser!.faceId,
                               ),
@@ -282,124 +353,147 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                               // Registration Date
                               _buildDetailRow(
                                 icon: Icons.calendar_today_outlined,
-                                label: 'Registered',
+                                label: 'Member Since',
                                 value: _formatDate(_loggedInUser!.createdAt),
                               ),
                             ],
                           ),
                         ),
 
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 20),
 
-                        // Status Card
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
+                        // Status Cards Row
+                        Row(
+                          children: [
+                            // Authentication Status Card
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.all(20),
                                 decoration: BoxDecoration(
-                                  color: Colors.green.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(12),
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.green.withValues(alpha: 0.2),
+                                      Colors.green.withValues(alpha: 0.1),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: Colors.green.withValues(alpha: 0.4),
+                                    width: 1.5,
+                                  ),
                                 ),
-                                child: const Icon(
-                                  Icons.verified_user,
-                                  color: Colors.green,
-                                  size: 24,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
                                 child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text(
-                                      'Authentication Status',
-                                      style: TextStyle(fontSize: 14, color: Colors.white70),
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green.withValues(alpha: 0.3),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: const Icon(
+                                        Icons.verified_user,
+                                        color: Colors.green,
+                                        size: 28,
+                                      ),
                                     ),
-                                    const SizedBox(height: 4),
+                                    const SizedBox(height: 12),
                                     const Text(
-                                      'Verified ✓',
+                                      'Verified',
                                       style: TextStyle(
-                                        fontSize: 18,
+                                        fontSize: 16,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.green,
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // Cloud Sync Status
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(Icons.cloud_done, color: Colors.blue, size: 24),
-                              ),
-                              const SizedBox(width: 16),
-                              const Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
+                                    const SizedBox(height: 4),
                                     Text(
-                                      'Cloud Sync',
-                                      style: TextStyle(fontSize: 14, color: Colors.white70),
-                                    ),
-                                    SizedBox(height: 4),
-                                    Text(
-                                      'Face data synced to cloud',
+                                      'Authenticated',
                                       style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500,
-                                        color: Colors.blue,
+                                        fontSize: 12,
+                                        color: Colors.white.withValues(alpha: 0.7),
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                            const SizedBox(width: 12),
+                            // Cloud Sync Status Card
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.blue.withValues(alpha: 0.2),
+                                      Colors.blue.withValues(alpha: 0.1),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: Colors.blue.withValues(alpha: 0.4),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue.withValues(alpha: 0.3),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: const Icon(
+                                        Icons.cloud_done,
+                                        color: Colors.blue,
+                                        size: 28,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    const Text(
+                                      'Cloud',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.blue,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Synced',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.white.withValues(alpha: 0.7),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
 
-                        const SizedBox(height: 40),
+                        const SizedBox(height: 32),
 
                         // Logout Button (Large)
                         SizedBox(
                           width: double.infinity,
                           child: OutlinedButton.icon(
                             onPressed: _logout,
-                            icon: const Icon(Icons.logout),
-                            label: const Text('Logout'),
+                            icon: const Icon(Icons.logout, size: 20),
+                            label: const Text(
+                              'Logout',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                            ),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.redAccent,
-                              side: const BorderSide(color: Colors.redAccent),
+                              side: BorderSide(
+                                color: Colors.redAccent.withValues(alpha: 0.8),
+                                width: 2,
+                              ),
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(16),
                               ),
                             ),
                           ),

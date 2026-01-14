@@ -2,6 +2,7 @@ import 'package:face_verification/face_verification.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:test_face_recognition/screens/home_screen.dart';
+import 'package:test_face_recognition/services/face_sync_service.dart';
 
 import 'firebase_options.dart';
 
@@ -13,6 +14,9 @@ void main() async {
 
   // Initialize FaceVerification once at app startup
   await FaceVerification.instance.init();
+
+  // Sync face embeddings from Firestore (for reinstall scenarios)
+  await FaceSyncService.instance.syncFromFirestore();
 
   runApp(const MyApp());
 }
